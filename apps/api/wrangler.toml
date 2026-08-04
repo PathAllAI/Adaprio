@@ -14,7 +14,7 @@ main = "src/index.ts"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat"]  # required by @supabase/supabase-js and zod
 
-account_id = ""  # fill in — Cloudflare account ID (not secret, but account-specific)
+account_id = "ce59bcb158929ff1e8d544fba4362a4a"  # fill in — Cloudflare account ID (not secret, but account-specific)
 
 # Structured log visibility in the Cloudflare dashboard (Ch 16.1).
 [observability]
@@ -64,8 +64,8 @@ MAX_PENDING_ATTEMPTS = "3"
 # for local dev since there is no real remote namespace at this scope).
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_LOCAL_KV_ID"
-preview_id = "REPLACE_WITH_LOCAL_KV_PREVIEW_ID"
+id = "95ab1e043765409cbdcde43ae6b31ab0"
+preview_id = "95ab1e043765409cbdcde43ae6b31ab0"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -75,7 +75,7 @@ preview_id = "REPLACE_WITH_LOCAL_KV_PREVIEW_ID"
 [env.staging]
 name = "adaprio-amm-staging"
 routes = [
-  { pattern = "api-staging.adaprio.space/*", custom_domain = true }
+  { pattern = "api-staging.adaprio.space", custom_domain = true }
 ]
 
 [env.staging.observability]
@@ -103,7 +103,7 @@ MAX_PENDING_ATTEMPTS = "3"
 # Create with: wrangler kv:namespace create RATE_LIMIT_KV --env staging
 [[env.staging.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_STAGING_KV_ID"
+id = "6966d585bdb34b029dfb55d92134f81a"
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -114,7 +114,7 @@ id = "REPLACE_WITH_STAGING_KV_ID"
 [env.production]
 name = "adaprio-amm-production"
 routes = [
-  { pattern = "api.adaprio.space/*", custom_domain = true }
+  { pattern = "api.adaprio.space", custom_domain = true }
 ]
 
 [env.production.observability]
@@ -142,7 +142,7 @@ MAX_PENDING_ATTEMPTS = "3"
 # Create with: wrangler kv:namespace create RATE_LIMIT_KV --env production
 [[env.production.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_PRODUCTION_KV_ID"
+id = "cbcc726269364256ab3c62c9c6b393be"
 
 
 # ═══════════════════════════════════════════════════════════════════════

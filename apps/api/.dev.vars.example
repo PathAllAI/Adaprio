@@ -1,0 +1,11 @@
+# .dev.vars.example
+# Copy to .dev.vars for local `wrangler dev` use. .dev.vars is gitignored —
+# never commit real values. Use staging-tier credentials here, never
+# production (Ch 17.1: "Production LLM API keys are never used in staging").
+
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key_here
+GROQ_API_KEY=gsk_your_groq_key_here
+HF_API_KEY=hf_your_huggingface_token_here
+ENCRYPTION_KEY=your_64_char_hex_encryption_key_here
+API_KEY_PEPPER=your_64_char_hex_pepper_here
