@@ -12,6 +12,7 @@ import { buildAdapters } from './adapters/index.js';
 import type { Adapters } from './adapters/index.js';
 import type { CloudflareAiBinding } from './adapters/cloudflare-ai-binding.js';
 import type { KVNamespaceLike } from './lib/kv-binding.js';
+import type { SupabaseClientLike } from './adapters/database/supabase-client-types.js';
 import type { ExecutionContext, ScheduledController } from './lib/workers-runtime-types.js';
 import {
   GovernanceRepository,
@@ -84,13 +85,19 @@ let cached: {
 function getDeps(env: Env) {
   if (cached) return cached;
 
-  // ⚠️ `createClient` requires `@supabase/supabase-js` as a real installed
-  // dependency (added to package.json) — this line could not be
-  // type-checked against the real package in the environment this codebase
-  // was built in (see database/supabase-client-types.ts's header note).
-  // The client it returns is expected to satisfy `SupabaseClientLike`
-  // structurally; verify once the real package is installed.
-  const supabaseClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+  // ⚠️ CONFIRMED ISSUE (found once the real package was actually installed
+  // and typechecked, not just the sandbox stub): letting TypeScript
+  // structurally verify the real `SupabaseClient` — which has extremely
+  // deep generic query-builder types — against the simplified
+  // `SupabaseClientLike` interface causes TS2589 ("Type instantiation is
+  // excessively deep and possibly infinite"). The explicit cast below
+  // tells TypeScript to trust the assignment instead of exhaustively
+  // comparing the two types — which is the correct call at an adapter
+  // boundary anyway: the whole point of `SupabaseClientLike` is to
+  // isolate the rest of this codebase from that complexity, so forcing a
+  // full structural check here defeats its purpose as well as being what
+  // was making the compiler choke.
+  const supabaseClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY) as unknown as SupabaseClientLike;
 
   const adapters = buildAdapters({
     groqApiKey: env.GROQ_API_KEY,
