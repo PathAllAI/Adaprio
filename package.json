@@ -1,0 +1,16 @@
+{
+  "name": "adaprio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Adaprio — Adaptive Memory Middleware. Monorepo root (Ch 33.1.1).",
+  "scripts": {
+    "build:shared-types": "pnpm --filter @adaprio/shared-types build",
+    "typecheck": "pnpm --filter @adaprio/shared-types build && pnpm --filter @adaprio/api typecheck",
+    "dev": "pnpm --filter @adaprio/api exec wrangler dev",
+    "deploy:staging": "pnpm --filter @adaprio/api exec wrangler deploy --env staging",
+    "deploy:production": "pnpm --filter @adaprio/api exec wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

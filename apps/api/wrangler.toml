@@ -1,0 +1,180 @@
+#:schema node_modules/wrangler/config-schema.json
+# ═══════════════════════════════════════════════════════════════════════
+# Adaprio — AMM Cloudflare Worker configuration
+# Handbook references: Chapter 04 (System Architecture), Chapter 17
+# (Deployment), Chapter 17.8-17.9 (Secrets / Env Vars, complete reference)
+#
+# RULE (Ch 17.5, 17.8): secrets are NEVER placed in this file, not even in
+# [vars]. Only binding *names* and non-secret config live here. Secrets are
+# set per-environment via `wrangler secret put <NAME> --env <environment>`.
+# ═══════════════════════════════════════════════════════════════════════
+
+name = "adaprio-amm"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]  # required by @supabase/supabase-js and zod
+
+account_id = ""  # fill in — Cloudflare account ID (not secret, but account-specific)
+
+# Structured log visibility in the Cloudflare dashboard (Ch 16.1).
+[observability]
+enabled = true
+
+# ───────────────────────────────────────────────────────────────────────
+# Cron Triggers (Ch 04.8) — one Worker, three schedules, dispatched in the
+# scheduled() handler by inspecting `controller.cron`.
+# ───────────────────────────────────────────────────────────────────────
+[triggers]
+crons = [
+  "*/15 * * * *",  # ttl-sweep            — expire memories past expires_at
+  "*/5 * * * *",   # pending-retry        — retry pending_memory_events
+  "*/30 * * * *",  # embedding-backfill   — fill null embeddings
+]
+
+# ───────────────────────────────────────────────────────────────────────
+# Workers AI binding (Ch 04.6, 04.7) — embedding model + fallback reranker.
+# Same binding name across all environments; Workers AI is not
+# environment-scoped the way KV/Supabase are.
+# ───────────────────────────────────────────────────────────────────────
+[ai]
+binding = "AI"
+
+# ───────────────────────────────────────────────────────────────────────
+# Non-secret runtime configuration (Ch 17.9). Secrets (SUPABASE_URL,
+# SUPABASE_SERVICE_KEY, GROQ_API_KEY, HF_API_KEY, ENCRYPTION_KEY,
+# API_KEY_PEPPER) are deliberately absent from every [vars] block below —
+# see setup commands at the bottom of this file. API_KEY_PEPPER is not
+# from the original Ch 17.8/17.9 secrets list — it was introduced in
+# lib/auth.ts as the substitution for bcrypt (impractical in the Workers
+# runtime — see that file's header comment), and this file was not
+# updated at the time. Fixed here.
+# ───────────────────────────────────────────────────────────────────────
+[vars]
+ENVIRONMENT = "local"
+LOG_LEVEL = "debug"
+MIN_CONFIDENCE = "0.4"
+MAX_RETRIEVAL_RESULTS = "10"
+LLM_TIMEOUT_MS = "5000"
+RERANKER_TIMEOUT_MS = "3000"
+MAX_PENDING_ATTEMPTS = "3"
+
+# Local dev KV namespace for rate-limit counters (Ch 10.7). Create with:
+#   wrangler kv:namespace create RATE_LIMIT_KV --preview
+# and paste the returned `preview_id` below (`id` can equal `preview_id`
+# for local dev since there is no real remote namespace at this scope).
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_LOCAL_KV_ID"
+preview_id = "REPLACE_WITH_LOCAL_KV_PREVIEW_ID"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# STAGING (Ch 17.1) — https://api-staging.adaprio.space/v1
+# Separate Supabase project, separate Groq/HF quota from production.
+# ═══════════════════════════════════════════════════════════════════════
+[env.staging]
+name = "adaprio-amm-staging"
+routes = [
+  { pattern = "api-staging.adaprio.space/*", custom_domain = true }
+]
+
+[env.staging.observability]
+enabled = true
+
+[env.staging.triggers]
+crons = [
+  "*/15 * * * *",
+  "*/5 * * * *",
+  "*/30 * * * *",
+]
+
+[env.staging.ai]
+binding = "AI"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+LOG_LEVEL = "info"
+MIN_CONFIDENCE = "0.4"
+MAX_RETRIEVAL_RESULTS = "10"
+LLM_TIMEOUT_MS = "5000"
+RERANKER_TIMEOUT_MS = "3000"
+MAX_PENDING_ATTEMPTS = "3"
+
+# Create with: wrangler kv:namespace create RATE_LIMIT_KV --env staging
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_STAGING_KV_ID"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PRODUCTION (Ch 17.1) — https://api.adaprio.space/v1
+# Deploy requires the GitHub Environment manual-approval gate (Ch 17.7,
+# 33.6) — never deployed directly from a developer machine.
+# ═══════════════════════════════════════════════════════════════════════
+[env.production]
+name = "adaprio-amm-production"
+routes = [
+  { pattern = "api.adaprio.space/*", custom_domain = true }
+]
+
+[env.production.observability]
+enabled = true
+
+[env.production.triggers]
+crons = [
+  "*/15 * * * *",
+  "*/5 * * * *",
+  "*/30 * * * *",
+]
+
+[env.production.ai]
+binding = "AI"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+LOG_LEVEL = "info"
+MIN_CONFIDENCE = "0.4"
+MAX_RETRIEVAL_RESULTS = "10"
+LLM_TIMEOUT_MS = "5000"
+RERANKER_TIMEOUT_MS = "3000"
+MAX_PENDING_ATTEMPTS = "3"
+
+# Create with: wrangler kv:namespace create RATE_LIMIT_KV --env production
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_PRODUCTION_KV_ID"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# SETUP — one-time commands (never commit the output of these; secrets go
+# straight into Cloudflare's secret store, not into this file or .env)
+# ═══════════════════════════════════════════════════════════════════════
+#
+# 1. KV namespaces (repeat per environment, paste returned IDs above):
+#      wrangler kv:namespace create RATE_LIMIT_KV --preview
+#      wrangler kv:namespace create RATE_LIMIT_KV --env staging
+#      wrangler kv:namespace create RATE_LIMIT_KV --env production
+#
+# 2. Secrets (repeat per environment — staging and production never share
+#    a value, per Ch 17.8/17.9):
+#      wrangler secret put SUPABASE_URL --env staging
+#      wrangler secret put SUPABASE_SERVICE_KEY --env staging
+#      wrangler secret put GROQ_API_KEY --env staging
+#      wrangler secret put HF_API_KEY --env staging
+#      wrangler secret put ENCRYPTION_KEY --env staging
+#      wrangler secret put API_KEY_PEPPER --env staging
+#      (repeat with --env production, and again with no --env flag for
+#       local dev via `wrangler dev`, which reads from .dev.vars instead —
+#       see .dev.vars.example, itself gitignored)
+#
+#    API_KEY_PEPPER should be a long random string, generated once per
+#    environment and never reused between staging/production:
+#      openssl rand -hex 32
+#
+# 3. Local dev secrets file (gitignored, never committed):
+#      cp .dev.vars.example .dev.vars
+#      # then fill in local/staging-mirrored values for wrangler dev
+#
+# 4. Verify bindings resolve before writing any pipeline code:
+#      wrangler dev
+#      curl http://localhost:8787/v1/health

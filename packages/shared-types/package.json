@@ -1,0 +1,23 @@
+{
+  "name": "@adaprio/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API request/response/error/adapter contracts shared between apps/api and packages/sdk-ts. Handbook Ch 33.1/33.1.2 — zero runtime dependencies, types only (erased at compile time).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "node scripts/generate-entity-keys.cjs",
+    "build": "npm run generate && tsc -p tsconfig.json",
+    "typecheck": "npm run generate && tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
