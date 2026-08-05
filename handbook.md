@@ -143,7 +143,7 @@ The AI application ecosystem in 2024–2026 has produced a proliferation of memo
 | **Certainty** | One of `confirmed`, `tentative`, `hypothetical`. Set at extraction time from the semantic content of the user's statement. |
 | **Tenant** | A company or developer using Adaprio via API. A tenant has one or more users. |
 | **User** | An end user within a tenant's application. Memories are scoped per `(tenant_id, user_id)`. |
-| **Memory Intelligence LLM** | The internal LLM (Groq Qwen 3.6 27B, with HF Qwen3-8B as fallback) used during the write path to extract and classify memories. Never exposed to customers. |
+| **Memory Intelligence LLM** | The internal LLM (Groq Llama 3.3 70B, with HF Qwen3-8B as fallback) used during the write path to extract and classify memories. Never exposed to customers. |
 | **Governance Engine** | The deterministic rule-based subsystem that applies conflict resolution, TTL expiry, reinforcement, and lifecycle transitions to memories after extraction. |
 | **Retrieval Engine** | The subsystem that handles the read path: intent analysis, temporal filtering, vector search, reranking, and context assembly. |
 | **Session** | A bounded interaction window, identified by `session_id`. Sessions are not stored but are used as metadata on memories to support cross-session reasoning in future versions. |
@@ -418,7 +418,7 @@ Runtime topology, data flow, failure modes, and recovery contracts for all MVP c
 
 ### 4.3 Memory Intelligence LLM
 
-**Primary:** Groq, model `qwen/qwen3-32b` (Qwen 3.6 27B — instruction-tuned, 32B-parameter, native JSON schema output mode on Groq). Configured with JSON schema output mode.
+**Primary:** Groq, model `llama-3.3-70b-versatile` (Llama 3.3 70B). Configured with JSON object output mode.
 
 **Fallback:** Hugging Face Inference API, model `Qwen/Qwen3-8B`. Activated on: HTTP 429, timeout >5s, network failure, HTTP 5xx.
 
@@ -542,7 +542,7 @@ Deterministic rule engine. See Chapter 06 for full specification. Operates entir
 
 | Failure | Behaviour | Recovery |
 |---|---|---|
-| Groq timeout / 5xx | Automatic fallback to HF Qwen3-8B | Transparent |
+| Groq timeout / 5xx / unavailable model | Automatic fallback to HF Qwen3-8B | Transparent |
 | HF timeout / 5xx | Message → `pending_memory_events` | Cron retry |
 | Both LLMs down | Message → `pending_memory_events`, return `{ status: 'queued' }` | Cron retry up to 3x |
 | JSON validation fails | One repair-retry, then dead-letter queue | Cron retry |
@@ -3422,7 +3422,7 @@ sequenceDiagram
     participant App as Customer Application
     participant W as Cloudflare Worker
     participant RF as Rule Filter
-    participant LLM as Memory Intelligence LLM<br/>(Groq Qwen 3.6 27B)
+    participant LLM as Memory Intelligence LLM<br/>(Groq Llama 3.3 70B)
     participant Val as JSON Validator (zod)
     participant Gov as Governance Engine
     participant Emb as Embedding Service<br/>(Cloudflare AI)
@@ -3487,12 +3487,12 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant W as Cloudflare Worker
-    participant Groq as Groq (Qwen 3.6 27B)
+    participant Groq as Groq (Llama 3.3 70B)
     participant HF as HF Inference (Qwen3-8B)
     participant Q as pending_memory_events
 
     W->>Groq: Inference call (timeout: 5000ms)
-    alt Groq timeout / 5xx
+    alt Groq timeout / 5xx / unavailable model
         Groq-->>W: timeout or error
         W->>HF: Fallback inference call (timeout: 5000ms)
         alt HF succeeds
@@ -3914,7 +3914,7 @@ Domain:
 | Stage | P50 | P95 | P99 | Measurement Point |
 |---|---|---|---|---|
 | Rule filter | < 0.5ms | < 1ms | < 2ms | In-Worker, synchronous |
-| LLM inference (Groq, Qwen 3.6 27B) | < 180ms | < 300ms | < 450ms | Worker → Groq → Worker |
+| LLM inference (Groq, Llama 3.3 70B) | < 180ms | < 300ms | < 450ms | Worker → Groq → Worker |
 | LLM inference (HF fallback) | < 300ms | < 500ms | < 700ms | Worker → HF → Worker |
 | JSON schema validation | < 0.5ms | < 1ms | < 2ms | In-Worker, synchronous |
 | Governance engine | < 2ms | < 5ms | < 10ms | In-Worker, pure logic |
@@ -4009,7 +4009,7 @@ Domain:
 
 **ID:** `extraction`
 **Current Version:** `v1.0.0`
-**Model:** Groq `qwen/qwen3-32b` (Qwen 3.6 27B)
+**Model:** Groq `llama-3.3-70b-versatile` (Llama 3.3 70B)
 **Called by:** Memory Engine write path, once per qualifying message
 **Latency budget:** ≤ 500ms (triggers fallback at 5000ms)
 
@@ -4243,7 +4243,7 @@ export class LLMAdapterError extends Error {
 
 | Implementation | Provider | Model | File |
 |---|---|---|---|
-| `GroqLLMAdapter` | Groq | `qwen/qwen3-32b` (Qwen 3.6 27B) | `src/adapters/llm/groq.ts` |
+| `GroqLLMAdapter` | Groq | `llama-3.3-70b-versatile` (Llama 3.3 70B) | `src/adapters/llm/groq.ts` |
 | `HuggingFaceLLMAdapter` | Hugging Face Inference API | `Qwen/Qwen3-8B` | `src/adapters/llm/huggingface.ts` |
 | `AnthropicLLMAdapter` | Anthropic | `claude-sonnet-4-6` | `src/adapters/llm/anthropic.ts` [FUTURE] |
 | `OpenAILLMAdapter` | OpenAI | `gpt-4o-mini` | `src/adapters/llm/openai.ts` [FUTURE] |
@@ -4472,10 +4472,10 @@ X-Request-ID: client-req-42
 
 **Result:** `{ action: 'extract' }` — continue to LLM
 
-## Step 3 — Memory Intelligence LLM (Groq, Qwen 3.6 27B)
+## Step 3 — Memory Intelligence LLM (Groq, Llama 3.3 70B)
 
-**Model called:** `qwen/qwen3-32b`
-**Response format:** JSON schema mode
+**Model called:** `llama-3.3-70b-versatile`
+**Response format:** JSON object mode
 
 **LLM Response (raw, after 187ms):**
 ```json
@@ -4504,7 +4504,7 @@ X-Request-ID: client-req-42
   "component": "memory_engine",
   "event": "llm_extraction_complete",
   "provider": "groq",
-  "model": "qwen/qwen3-32b",
+  "model": "llama-3.3-70b-versatile",
   "prompt_version": "v1.0.0",
   "contains_memory": true,
   "memories_count": 1,
@@ -5096,7 +5096,7 @@ Migrations run only through CI (Chapter 17.4/17.7), never manually against produ
 
 | Field | Before | After |
 |---|---|---|
-| Primary Memory Intelligence LLM | GPT-OSS 20B (Groq) | **Qwen 3.6 27B (Groq, `qwen/qwen3-32b`)** |
+| Primary Memory Intelligence LLM | GPT-OSS 20B (Groq) | **Llama 3.3 70B (Groq, `llama-3.3-70b-versatile`)** |
 | Fallback LLM | HF Qwen3-8B | HF Qwen3-8B (unchanged) |
 
 All references in Chapters 03, 04, 05, 10, 25, 30 have been updated.
@@ -5172,4 +5172,3 @@ All references in Chapters 03, 04, 05, 10, 25, 30 have been updated.
 
 *End of Adaprio Engineering Handbook v1.2.0*
 *v1.2.0 focus: ORM/data-access specification, monorepo repository structure, coding standards (logging, error handling, folder organization), complete API contracts (validation + error examples), database migrations as real SQL files, deployment implementation (CI/CD, secrets, env vars, rollback), testing implementation (structure, mocks, fixtures), and SDK implementation details (interfaces, retry, pagination, streaming).*
-

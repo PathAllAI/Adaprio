@@ -61,6 +61,13 @@ export async function handleProcess(request: Request, deps: ProcessRouteDeps): P
 
     return jsonResponse(body, 200, { 'X-Request-ID': requestId, ...rlHeaders });
   } catch (err) {
+    console.error(JSON.stringify({
+      event: 'process_request_failed',
+      request_id: requestId,
+      error_name: err instanceof Error ? err.name : 'UnknownError',
+      error_message: err instanceof Error ? err.message : String(err),
+      error_stack: err instanceof Error ? err.stack : undefined,
+    }));
     const response = errorToResponse(err, requestId);
     for (const [k, v] of Object.entries(rlHeaders)) response.headers.set(k, v);
     return response;

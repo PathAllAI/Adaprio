@@ -42,7 +42,7 @@ export class GroqLLMAdapter implements LLMAdapter {
 
   constructor(config: GroqLLMAdapterConfig) {
     this.apiKey = config.apiKey;
-    this.model = config.model ?? 'qwen/qwen3-32b'; // Ch 04.3 — Qwen 3.6 27B
+    this.model = config.model ?? 'llama-3.3-70b-versatile'; // Ch 04.3 — Llama 3.3 70B
     this.baseUrl = config.baseUrl ?? 'https://api.groq.com/openai/v1';
     this.temperature = config.temperature ?? 0.1;
   }
@@ -90,7 +90,9 @@ export class GroqLLMAdapter implements LLMAdapter {
       // 4xx other than 429 means our request was malformed — retrying the
       // fallback provider with the same inputs would fail the same way.
       const bodyText = await response.text().catch(() => '');
-      throw new LLMAdapterError('SERVER_ERROR', `Groq request rejected: HTTP ${response.status} ${bodyText}`, false);
+      const modelUnavailable = response.status === 404
+        && /model_not_found|does not exist|do not have access/i.test(bodyText);
+      throw new LLMAdapterError('SERVER_ERROR', `Groq request rejected: HTTP ${response.status} ${bodyText}`, modelUnavailable);
     }
 
     let body: GroqChatCompletionResponse;

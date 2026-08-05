@@ -154,6 +154,11 @@ export async function runWritePipeline(
     // LLMAdapterChain (Ch 31.2) only throws once BOTH primary and fallback
     // are exhausted — any throw here means total provider outage (Ch 04,
     // AMM1004). Never surface this as an error to the caller; queue instead.
+    console.error(JSON.stringify({
+      event: 'llm_extraction_failed',
+      error_name: err instanceof Error ? err.name : 'UnknownError',
+      error_message: err instanceof Error ? err.message : String(err),
+    }));
     void (err instanceof LLMAdapterError); // narrow for future branching if needed
     if (!isRetry) {
       await deps.pendingRepo.enqueue({ tenantId, userId, sessionId, message });

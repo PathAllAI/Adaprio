@@ -74,7 +74,7 @@ export async function checkRateLimit(
   // TTL covers only the remainder of the current window (plus a small
   // buffer for clock skew between the Worker and KV's storage layer) —
   // not a full 60s from "now," since the window itself started earlier.
-  const ttl = Math.max(5, resetAt - nowSeconds + 5);
+  const ttl = Math.max(60, resetAt - nowSeconds + 5);
   await kv.put(key, String(count + 1), { expirationTtl: ttl });
 
   return { allowed: true, limit, remaining: limit - count - 1, resetAt };
