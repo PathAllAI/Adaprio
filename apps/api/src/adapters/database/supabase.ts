@@ -23,7 +23,7 @@ import type { SupabaseClientLike, SupabaseResult } from './supabase-client-types
  *     p_category_filter text[] DEFAULT NULL, p_entity_key text DEFAULT NULL
  *   ) RETURNS TABLE (
  *     id uuid, entity_key text, value text, memory_text text, certainty text,
- *     importance_score numeric, lifecycle_state text, valid_from timestamptz,
+ *     importance_score numeric, lifecycle_state text, last_confirmed_at timestamptz,
  *     valid_until timestamptz, retrieval_count integer, last_accessed timestamptz,
  *     reinforcement_score numeric, similarity_score double precision
  *   ) AS $$
@@ -31,7 +31,7 @@ import type { SupabaseClientLike, SupabaseResult } from './supabase-client-types
  *     IF p_query_vector IS NOT NULL THEN
  *       RETURN QUERY
  *         SELECT m.id, m.entity_key, m.value, m.memory_text, m.certainty::text,
- *                m.importance_score, m.lifecycle_state::text, m.valid_from, m.valid_until,
+ *                m.importance_score, m.lifecycle_state::text, m.last_confirmed_at, m.valid_until,
  *                m.retrieval_count, m.last_accessed, m.reinforcement_score,
  *                (1 - (m.embedding <=> p_query_vector))::double precision
  *         FROM memories m
@@ -45,7 +45,7 @@ import type { SupabaseClientLike, SupabaseResult } from './supabase-client-types
  *     ELSE
  *       RETURN QUERY
  *         SELECT m.id, m.entity_key, m.value, m.memory_text, m.certainty::text,
- *                m.importance_score, m.lifecycle_state::text, m.valid_from, m.valid_until,
+ *                m.importance_score, m.lifecycle_state::text, m.last_confirmed_at, m.valid_until,
  *                m.retrieval_count, m.last_accessed, m.reinforcement_score,
  *                NULL::double precision
  *         FROM memories m
@@ -53,7 +53,7 @@ import type { SupabaseClientLike, SupabaseResult } from './supabase-client-types
  *           AND m.lifecycle_state::text = ANY(p_lifecycle_filter)
  *           AND (p_category_filter IS NULL OR m.category::text = ANY(p_category_filter))
  *           AND (p_entity_key IS NULL OR m.entity_key = p_entity_key)
- *         ORDER BY m.valid_from DESC
+ *         ORDER BY m.last_confirmed_at DESC
  *         LIMIT p_limit;
  *     END IF;
  *   END;
@@ -71,7 +71,7 @@ interface SearchMemoriesRow {
   certainty: string;
   importance_score: string;
   lifecycle_state: string;
-  valid_from: string;
+  last_confirmed_at: string;
   valid_until: string | null;
   retrieval_count: number;
   last_accessed: string | null;
@@ -88,7 +88,7 @@ function toCandidateMemory(row: SearchMemoriesRow): CandidateMemory {
     certainty: row.certainty,
     importanceScore: parseFloat(row.importance_score),
     lifecycleState: row.lifecycle_state as CandidateMemory['lifecycleState'],
-    validFrom: row.valid_from,
+    validFrom: row.last_confirmed_at,
     validUntil: row.valid_until,
     retrievalCount: row.retrieval_count,
     lastAccessed: row.last_accessed,

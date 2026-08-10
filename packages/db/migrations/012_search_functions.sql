@@ -33,7 +33,7 @@ RETURNS TABLE (
   certainty text,
   importance_score numeric,
   lifecycle_state text,
-  valid_from timestamptz,
+  last_confirmed_at timestamptz,
   valid_until timestamptz,
   retrieval_count integer,
   last_accessed timestamptz,
@@ -45,7 +45,7 @@ BEGIN
     RETURN QUERY
       SELECT
         m.id, m.entity_key, m.value, m.memory_text, m.certainty::text,
-        m.importance_score, m.lifecycle_state::text, m.valid_from, m.valid_until,
+        m.importance_score, m.lifecycle_state::text, m.last_confirmed_at, m.valid_until,
         m.retrieval_count, m.last_accessed, m.reinforcement_score,
         (1 - (m.embedding <=> p_query_vector))::double precision AS similarity_score
       FROM memories m
@@ -61,7 +61,7 @@ BEGIN
     RETURN QUERY
       SELECT
         m.id, m.entity_key, m.value, m.memory_text, m.certainty::text,
-        m.importance_score, m.lifecycle_state::text, m.valid_from, m.valid_until,
+        m.importance_score, m.lifecycle_state::text, m.last_confirmed_at, m.valid_until,
         m.retrieval_count, m.last_accessed, m.reinforcement_score,
         NULL::double precision AS similarity_score
       FROM memories m
@@ -70,7 +70,7 @@ BEGIN
         AND m.lifecycle_state::text = ANY(p_lifecycle_filter)
         AND (p_category_filter IS NULL OR m.category::text = ANY(p_category_filter))
         AND (p_entity_key IS NULL OR m.entity_key = p_entity_key)
-      ORDER BY m.valid_from DESC
+      ORDER BY m.last_confirmed_at DESC
       LIMIT p_limit;
   END IF;
 END;

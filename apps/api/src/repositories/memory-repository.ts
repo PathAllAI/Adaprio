@@ -90,7 +90,7 @@ export class MemoryRepository {
       certainty: row.certainty as string,
       importanceScore: parseFloat(row.importance_score as string),
       lifecycleState: row.lifecycle_state as CandidateMemory['lifecycleState'],
-      validFrom: row.valid_from as string,
+      validFrom: row.last_confirmed_at as string,
       validUntil: row.valid_until as string | null,
       retrievalCount: row.retrieval_count as number,
       lastAccessed: row.last_accessed as string | null,

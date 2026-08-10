@@ -154,7 +154,7 @@ export class MockDatabaseAdapter implements DatabaseAdapter {
     );
 
     rows = rows
-      .sort((a, b) => new Date(b.valid_from as string).getTime() - new Date(a.valid_from as string).getTime())
+      .sort((a, b) => new Date(b.last_confirmed_at as string).getTime() - new Date(a.last_confirmed_at as string).getTime())
       .slice(0, limit);
 
     return rows.map((r) => ({ ...r, similarity_score: p.p_query_vector ? 0.5 : null }));
@@ -202,7 +202,6 @@ export class MockDatabaseAdapter implements DatabaseAdapter {
       expires_at: null,
       valid_until: null,
       last_accessed: null,
-      valid_from: new Date().toISOString(),
       last_confirmed_at: new Date().toISOString(),
       embedding: p.p_embedding ?? null,
       lock_version: 1,
@@ -248,7 +247,7 @@ export class MockDatabaseAdapter implements DatabaseAdapter {
       certainty: row.certainty as string,
       importanceScore: parseFloat(row.importance_score as string),
       lifecycleState: row.lifecycle_state as CandidateMemory['lifecycleState'],
-      validFrom: row.valid_from as string,
+      validFrom: row.last_confirmed_at as string,
       validUntil: row.valid_until as string | null,
       retrievalCount: row.retrieval_count as number,
       lastAccessed: row.last_accessed as string | null,
